@@ -1,0 +1,592 @@
+<title>Казахстан: разрули!</title>
+<meta name="description" content="Сатирическая стратегия: вы глава правительства Казахстана. 60 месяцев, 10 трлн тенге и 20 регионов, которые ждут решений.">
+<meta name="theme-color" content="#0f1923">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: steppe-night game board. Tilted 3D map left, decision card right, indicators on top, projects + log below. Single dark look by design. */
+:root{
+  --bg:#0f1923; --panel:#15232f; --panel-2:#1b2d3b; --line:#26394a;
+  --fg:#e9eff3; --muted:#8ea4b4;
+  --sky:#18b4cc; --sun:#f2c230; --good:#4cc38a; --bad:#ef6464;
+  --land-top:#2a5566; --land-edge:#11303b; --water:#0d3550;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body);padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px;padding-bottom:12px;border-bottom:1px solid var(--line);position:relative}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:3px;
+  background:repeating-linear-gradient(90deg,var(--sun) 0 10px,transparent 10px 14px,var(--sun) 14px 16px,transparent 16px 22px);opacity:.55}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eyebrow{font:500 11px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--sky)}
+h1{font:800 clamp(24px,4.2vw,40px)/1.05 var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 em{font-style:normal;color:var(--sun)}
+.clock{display:flex;gap:20px;flex-wrap:wrap}
+.clock div{display:flex;flex-direction:column}
+.clock small{font:500 11px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.clock b{font:700 20px/1.3 var(--f-display);font-variant-numeric:tabular-nums}
+.clock b.neg{color:var(--bad)}
+
+/* indicators */
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 11px;display:flex;flex-direction:column;gap:6px}
+.stat .row{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.stat span{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat b{font:600 15px/1 var(--f-mono);font-variant-numeric:tabular-nums}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--sky);transition:width .5s ease}
+.stat.warn .bar i{background:var(--sun)} .stat.crit .bar i{background:var(--bad)}
+.stat.crit b{color:var(--bad)}
+.delta{font:500 11px var(--f-mono);margin-left:4px}
+.up{color:var(--good)} .dn{color:var(--bad)}
+
+/* board */
+.board{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:14px;align-items:start}
+.mapbox{background:radial-gradient(120% 90% at 50% 30%,#163042 0%,var(--bg) 70%);border:1px solid var(--line);border-radius:8px;overflow:hidden;position:relative;min-width:0}
+.stage{perspective:1300px;padding:18px 8px 4px}
+.tilt{transform:rotateX(30deg);transform-origin:50% 60%;transition:transform .8s ease}
+.mapbox:hover .tilt{transform:rotateX(24deg)}
+svg.map{display:block;width:100%;height:auto;overflow:visible}
+.maplegend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:6px 14px 12px;font-size:12px;color:var(--muted)}
+.maplegend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0}
+.city text{font:500 19px var(--f-body);fill:var(--muted);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.city.cap text{fill:var(--fg);font-weight:600}
+.city.hot text{fill:var(--sun);font-weight:600}
+.pulse{animation:pulse 1.8s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(2.4)}}
+
+/* decision card */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card .where{font:500 11.5px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--sky)}
+.card h2{font:700 21px/1.2 var(--f-display);margin:0;text-wrap:balance}
+.card p{margin:0;color:#c9d6de;max-width:62ch}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;transition:border-color .15s,transform .15s}
+.opt:hover{border-color:var(--sky);transform:translateX(2px)}
+.opt .cost{font:500 12px var(--f-mono);color:var(--sun);white-space:nowrap}
+.opt .cost.plus{color:var(--good)}
+.result{background:var(--panel-2);border-left:3px solid var(--sun);padding:10px 12px;border-radius:0 6px 6px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 12px var(--f-mono);padding:3px 7px;border-radius:4px;background:var(--bg);border:1px solid var(--line)}
+.primary{background:var(--sun);color:#1a1300;border:0;border-radius:6px;padding:12px 16px;font-weight:600;align-self:flex-start}
+.primary:hover{filter:brightness(1.08)}
+.ghost{background:none;border:1px solid var(--line);border-radius:6px;padding:8px 12px;color:var(--muted);font-size:13px}
+.ghost:hover{color:var(--fg);border-color:var(--muted)}
+.grade{font:800 28px/1.1 var(--f-display);color:var(--sun)}
+
+/* lower */
+.lower{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:14px;align-items:start}
+.sec{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sec h3{font:700 15px/1.2 var(--f-display);margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sec h3 small{font:500 12px var(--f-body);color:var(--muted)}
+.projects{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.proj{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.proj h4{margin:0;font-size:14.5px;font-weight:600}
+.proj .meta{font:500 12px var(--f-mono);color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.proj p{margin:0;font-size:13px;color:var(--muted);flex:1}
+.proj button{background:var(--panel-2);border:1px solid var(--sky);color:var(--sky);border-radius:5px;padding:7px;font-size:13px;font-weight:600}
+.proj button:hover:not(:disabled){background:var(--sky);color:var(--bg)}
+.proj button:disabled{opacity:.45;cursor:not-allowed;border-color:var(--line);color:var(--muted)}
+.proj.run{border-color:var(--sky)} .proj.done{border-color:var(--good)}
+.prog{height:5px;background:var(--line);border-radius:3px;overflow:hidden}.prog i{display:block;height:100%;background:var(--sky)}
+.status{font:500 12px var(--f-mono)}
+.log{background:var(--panel);border:1px solid var(--line);border-radius:6px;max-height:430px;overflow:auto;padding:4px 0}
+.log div{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:10px}
+.log div:last-child{border-bottom:0}
+.log time{font:500 11.5px var(--f-mono);color:var(--muted);white-space:nowrap;padding-top:1px;min-width:96px}
+.log .empty{color:var(--muted)}
+.foot{font-size:12px;color:var(--muted);text-align:center;padding-top:8px}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+
+@media (max-width:980px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.board,.lower{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:460px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.clock{gap:14px}.clock b{font-size:17px}.city text{font-size:24px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Сатирическая стратегия · Республика Казахстан</span>
+      <h1>Казахстан: <em>разрули!</em></h1>
+    </div>
+    <div class="clock">
+      <div><small>Дата</small><b id="date">Январь 2027</b></div>
+      <div><small>Срок</small><b id="term">1 / 60</b></div>
+      <div><small>Бюджет</small><b id="budget">10,00 трлн ₸</b></div>
+    </div>
+  </header>
+
+  <section class="stats" id="stats" aria-label="Показатели страны"></section>
+
+  <section class="board">
+    <div class="mapbox">
+      <div class="stage"><div class="tilt"><svg class="map" id="map" viewBox="0 0 1030 600" role="img" aria-label="Карта Казахстана"></svg></div></div>
+      <div class="maplegend">
+        <span><i style="background:var(--sun)"></i>событие месяца</span>
+        <span><i style="background:var(--sky)"></i>стройка идёт</span>
+        <span><i style="background:var(--good)"></i>проект сдан</span>
+      </div>
+    </div>
+    <article class="card" id="card" aria-live="polite"></article>
+  </section>
+
+  <section class="lower">
+    <div class="sec">
+      <h3>Национальные проекты <small>деньги списываются сразу, эффект после сдачи</small></h3>
+      <div class="projects" id="projects"></div>
+    </div>
+    <div class="sec">
+      <h3>Журнал правительства <small id="newgame-slot"></small></h3>
+      <div class="log" id="log"></div>
+    </div>
+  </section>
+  <p class="foot">Все события и персонажи вымышлены. Совпадения с реальностью случайны, но неизбежны.</p>
+</div>
+
+<script>
+(function(){
+const STATS=[
+  {k:'tr',n:'Доверие народа'},
+  {k:'ec',n:'Экономика'},
+  {k:'el',n:'Экология'},
+  {k:'rd',n:'Дороги и транспорт'},
+  {k:'so',n:'Социальная сфера'},
+  {k:'co',n:'Коррупция',inv:true}
+];
+const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const TERM=60;
+
+const CITIES={
+  astana:{n:'Астана',ll:[71.43,51.13],cap:true},
+  almaty:{n:'Алматы',ll:[76.95,43.24],cap:true},
+  shym:{n:'Шымкент',ll:[69.6,42.32],cap:true},
+  kar:{n:'Караганда',ll:[73.1,49.8]},
+  akt:{n:'Актобе',ll:[57.2,50.28]},
+  aty:{n:'Атырау',ll:[51.9,47.1]},
+  aktau:{n:'Актау',ll:[51.35,43.65]},
+  pav:{n:'Павлодар',ll:[76.95,52.29]},
+  ekib:{n:'Экибастуз',ll:[75.3,51.72],small:true},
+  oskemen:{n:'Өскемен',ll:[82.6,49.95]},
+  semey:{n:'Семей',ll:[80.25,50.41]},
+  kost:{n:'Костанай',ll:[63.62,53.21]},
+  petro:{n:'Петропавловск',ll:[69.15,54.87]},
+  kokshe:{n:'Кокшетау',ll:[69.4,53.28]},
+  ural:{n:'Уральск',ll:[51.37,51.23]},
+  kyzyl:{n:'Кызылорда',ll:[65.5,44.85]},
+  taraz:{n:'Тараз',ll:[71.37,42.9]},
+  turk:{n:'Туркестан',ll:[68.25,43.3]},
+  balkh:{n:'Балхаш',ll:[74.98,46.85]},
+  zhez:{n:'Жезказган',ll:[67.7,47.8]},
+  taldy:{n:'Талдыкорган',ll:[78.37,45.0]},
+  baik:{n:'Байконур',ll:[63.3,45.62],small:true},
+  aral:{n:'Аральск',ll:[61.67,46.8],small:true},
+  alakol:{n:'Алаколь',ll:[81.6,46.15],small:true},
+  khorgos:{n:'Хоргос',ll:[80.3,44.2],small:true}
+};
+
+// rough outline of Kazakhstan, [lon,lat], clockwise from the Caspian north-west
+const BORDER=[[49.2,46.4],[48.6,46.8],[48.6,47.4],[47.2,47.8],[46.5,48.4],[46.8,49.3],[47.3,50.3],[48.3,49.9],[48.7,50.6],[50.6,51.6],[52.3,51.7],[54.5,51.0],[55.7,50.5],[57.2,51.0],[58.4,51.1],[59.6,50.6],[61.4,50.8],[61.6,51.9],[60.0,52.1],[60.8,52.7],[61.1,53.1],[62.0,53.9],[64.0,53.9],[65.2,54.6],[67.0,54.9],[68.7,55.4],[70.8,55.3],[71.2,54.1],[73.4,54.0],[76.5,54.2],[77.8,53.3],[80.0,50.9],[83.4,51.0],[85.2,49.6],[86.8,49.1],[87.3,49.1],[85.7,48.5],[85.5,47.0],[83.0,47.2],[82.3,45.5],[80.2,45.0],[80.0,44.0],[80.8,43.2],[80.2,42.1],[79.1,42.8],[77.0,42.9],[75.6,42.8],[74.2,43.2],[73.4,42.5],[71.8,42.8],[70.9,42.2],[69.1,41.4],[68.5,40.7],[68.0,41.0],[66.6,41.2],[66.0,42.0],[66.0,43.0],[64.9,43.7],[62.0,43.5],[61.0,44.4],[58.6,45.6],[56.0,45.0],[56.0,41.3],[55.4,41.3],[54.1,42.3],[53.0,42.1],[52.5,42.8],[51.3,43.2],[51.0,43.9],[50.3,44.4],[50.9,44.9],[51.5,45.4],[53.1,45.4],[53.2,46.3],[51.5,46.8],[50.0,46.7]];
+const P=([lon,lat])=>[(lon-45.5)*24.2,(56.2-lat)*36];
+
+const PROJECTS=[
+  {id:'lrt',n:'ЛРТ Астаны',c:'astana',cost:0.6,mo:6,e:{rd:8,tr:5},d:'Достроить наконец то, что начали ещё при прошлых трёх правительствах.'},
+  {id:'gas',n:'Газификация Севера',c:'kokshe',cost:1.2,mo:10,e:{so:10,el:6,tr:6},d:'Газ в дома Акмолинской и СКО. Уголь в подвалах уходит в историю.'},
+  {id:'road',n:'Трасса Центр–Запад',c:'zhez',cost:1.5,mo:12,e:{rd:12,ec:6},d:'Тысяча километров асфальта через степь, где навигатор показывает «нет дороги».'},
+  {id:'aralp',n:'Спасение Северного Арала',c:'aral',cost:0.8,mo:12,e:{el:12,tr:4},d:'Нарастить Кокаральскую плотину. Море должно вернуться к Аральску.'},
+  {id:'metro',n:'Метро Алматы: +5 станций',c:'almaty',cost:0.7,mo:8,e:{rd:7,el:3},d:'Пять станций за срок вместо одной за пятилетку.'},
+  {id:'balkh',n:'Чистый Балхаш',c:'balkh',cost:0.5,mo:8,e:{el:8},d:'Очистные для медеплавильного и контроль водозабора из Или.'},
+  {id:'school',n:'1000 новых школ',c:'shym',cost:1.0,mo:10,e:{so:12,tr:5},d:'Конец трёхсменке. Особенно на юге, где детей больше, чем парт.'},
+  {id:'tec',n:'Модернизация ТЭЦ',c:'ekib',cost:0.9,mo:9,e:{el:7,so:4},d:'Фильтры, новые котлы и меньше чёрного снега в Экибастузе.'},
+  {id:'hub',n:'IT-хаб 2.0',c:'astana',cost:0.4,mo:6,e:{ec:8},d:'Налоговые каникулы стартапам и визы для разработчиков.'},
+  {id:'alak',n:'Курорт Алаколь',c:'alakol',cost:0.4,mo:6,e:{ec:5,tr:3},d:'Канализация, дороги и честные цены на лежаки.'},
+  {id:'gaschem',n:'Газохимия Атырау',c:'aty',cost:1.4,mo:12,e:{ec:12,el:-6},d:'Свой полипропилен вместо экспорта сырья. Экологи против.'},
+  {id:'khorg',n:'Сухой порт Хоргос',c:'khorgos',cost:0.6,mo:8,e:{ec:9},d:'Транзит Китай–Европа через Казахстан. Контейнеры не ждут.'}
+];
+
+// s: w winter, sp spring, su summer, au autumn
+const EVENTS=[
+ {id:1,s:'w',c:'petro',t:'Котёл ТЭЦ на пределе',x:'На улице −38°. Петропавловская ТЭЦ работает на честном слове, в чатах жильцов паника.',o:[
+  {t:'Срочный ремонт за счёт бюджета',e:{b:-0.3,so:4,tr:4},r:'Котлы залатаны, батареи горячие. До следующей зимы.'},
+  {t:'Отправить комиссию разобраться',e:{tr:-6,so:-4,co:2},r:'Комиссия прилетела, сфотографировалась на фоне трубы и улетела.'},
+  {t:'Раздать населению обогреватели',e:{b:-0.1,tr:1,el:-2},r:'Город греется. Сети перегружены, но люди ценят жест.'}]},
+ {id:2,s:'sp',c:'akt',t:'Паводок в Актюбинской области',x:'Снег сошёл за неделю, Илек вышел из берегов. Под угрозой три посёлка.',o:[
+  {t:'Мобилизовать МЧС, укрепить дамбы',e:{b:-0.4,tr:6,rd:1},r:'Посёлки отстояли. Волонтёры кормили спасателей бешбармаком.'},
+  {t:'Вода сама уйдёт',e:{tr:-10,so:-5},r:'Вода ушла. Вместе с доверием жителей.'},
+  {t:'Переселить посёлки повыше',e:{b:-0.6,so:6,tr:3},r:'Новые дома на холме. Старожилы ворчат, но сухие.'}]},
+ {id:3,s:'w',c:'almaty',t:'Смог над Алматы',x:'Горы не видно третью неделю. Приложения качества воздуха показывают фиолетовый.',o:[
+  {t:'Перевести ТЭЦ-2 на газ',e:{b:-0.5,el:10,tr:3},r:'Через полгода над городом снова видно Медеу.'},
+  {t:'Запретить уголь в частном секторе',e:{el:5,tr:-7},r:'Воздух чище, но в верхних микрорайонах мёрзнут и злятся.'},
+  {t:'Назвать смог «утренним туманом»',e:{el:-2,tr:-5},r:'Пресс-релиз вышел. Мемы тоже.'}]},
+ {id:4,c:'astana',t:'Переименовать проспект?',x:'Депутаты предлагают в пятый раз переименовать главный проспект столицы. Таблички стоят дорого.',o:[
+  {t:'Переименовать, народ любит перемены',e:{b:-0.05,tr:-2,co:1},r:'Навигаторы снова путаются. Таксисты называют по-старому.'},
+  {t:'Потратить эти деньги на тротуары',e:{b:-0.1,rd:3,tr:2},r:'Мамы с колясками впервые прошли квартал без бордюров по колено.'}]},
+ {id:5,c:'aty',t:'Нефть подорожала до 110 $',x:'В бюджет пришли сверхдоходы. Министерства уже пишут заявки.',o:[
+  {t:'Отложить в Нацфонд',e:{b:1.2,ec:2},r:'Дети скажут спасибо. Министры не скажут.'},
+  {t:'Раздать населению по 50 000 ₸',e:{b:0.4,tr:6,so:2},r:'Народ доволен, магазины тоже. Инфляция чуть подросла.'},
+  {t:'Поющий фонтан в каждом облцентре',e:{b:0.85,co:5,tr:-2},r:'Фонтаны поют. Подрядчики тоже.'}]},
+ {id:6,c:'aty',t:'Нефть упала до 45 $',x:'Бюджет трещит. Минфин просит срочно найти деньги.',o:[
+  {t:'Ослабить тенге',e:{b:0.5,tr:-10,ec:-3},r:'Очереди в обменниках, гречка в тренде.'},
+  {t:'Урезать расходы чиновников',e:{b:0.3,co:-3,tr:5},r:'Министры пересели на Hongqi эконом-класса. Народ аплодирует.'},
+  {t:'Взять из Нацфонда',e:{b:0.8,ec:-2},r:'Подушка безопасности стала тоньше.'}]},
+ {id:7,c:'shym',t:'Рынок без чеков',x:'Крупнейший рынок Шымкента торгует наличными на триллион в год и не видит в этом проблемы.',o:[
+  {t:'Обязать всех работать с кассами',e:{ec:3,co:-4,tr:-3},r:'Торговцы ворчат, но QR-коды висят на каждом прилавке.'},
+  {t:'Оставить как есть, это традиция',e:{co:2,ec:1},r:'Торговля кипит. В налоговой тишина.'}]},
+ {id:8,c:'kar',t:'Авария на шахте',x:'На угольной шахте под Карагандой обрушение. Собственник обещает, что всё под контролем.',o:[
+  {t:'Обязать собственника модернизировать',e:{so:5,ec:-2,tr:4},r:'Новые датчики метана и вентиляция. Шахтёры спускаются спокойнее.'},
+  {t:'Проверка «по звонку»',e:{co:4,so:-4,tr:-3},r:'Проверка нашла, что всё прекрасно. Как и в прошлый раз.'}]},
+ {id:9,s:'su',c:'taldy',t:'Степной пожар в Жетысу',x:'Сухая трава, ветер 25 м/с. Огонь идёт к сёлам.',o:[
+  {t:'Поднять авиацию МЧС',e:{b:-0.2,el:3,tr:4},r:'Огонь остановили в трёх километрах от села.'},
+  {t:'Пусть акимат района справляется',e:{el:-8,tr:-5},r:'Акимат справился. Сгорело 40 тысяч гектаров.'}]},
+ {id:10,s:'su',c:'kyzyl',t:'Рису не хватает воды',x:'Сырдарья обмелела, рисовые чеки Кызылорды сохнут.',o:[
+  {t:'Субсидировать капельное орошение',e:{b:-0.3,ec:4,el:5},r:'Воды уходит вдвое меньше, урожай тот же.'},
+  {t:'Договориться с соседями о попусках',e:{tr:2,ec:2},r:'Делегация вернулась с водой и тремя коврами в подарок.'},
+  {t:'Сеять рис, как деды сеяли',e:{el:-6,ec:1},r:'Урожай собран. Арал стал ещё на сантиметр меньше.'}]},
+ {id:11,c:'astana',t:'Министр и часы за 30 млн',x:'Блогеры заметили на руке министра часы стоимостью в его зарплату за 10 лет.',o:[
+  {t:'Уволить и передать в антикор',e:{co:-8,tr:8},r:'Часы ушли в доход государства. Министр в соцсетях: «это подделка».'},
+  {t:'Это подарок от родственников',e:{co:6,tr:-10},r:'Родственники, видимо, очень щедрые.'},
+  {t:'Ввести декларацию часов и машин',e:{co:-3,tr:2},r:'Чиновники массово перешли на Casio.'}]},
+ {id:12,c:'aktau',t:'Каспий мелеет',x:'Уровень моря упал на метр. Порт Актау теряет глубину у причалов.',o:[
+  {t:'Запустить научную программу',e:{b:-0.15,el:4},r:'Учёные из пяти прикаспийских стран впервые сели за один стол.'},
+  {t:'Построить новый порт дальше в море',e:{b:-0.5,ec:5,co:2},r:'Порт строится. Тюлени переезжают.'},
+  {t:'Это природные циклы',e:{el:-3},r:'Возможно. Но лодки стоят на песке.'}]},
+ {id:13,c:'semey',t:'Наследие полигона',x:'Жители бывшего Семипалатинского полигона просят обновить медицинскую программу.',o:[
+  {t:'Новая медпрограмма и выплаты',e:{b:-0.25,so:7,tr:4},r:'В районы приехали онкологи и передвижные лаборатории.'},
+  {t:'Мемориальный музей и туризм',e:{b:-0.1,ec:2,tr:2},r:'Иностранцы приезжают. Местные просили больницу.'}]},
+ {id:14,c:'baik',t:'Байконур и аренда',x:'Срок аренды космодрома снова обсуждают. Есть идея своего космического стартапа.',o:[
+  {t:'Поддержать свой космостартап',e:{b:-0.3,ec:4,tr:3},r:'Первый казахстанский кубсат ушёл на орбиту. Нация гордится.'},
+  {t:'Продлить аренду и получить деньги',e:{b:0.15,ec:1},r:'Деньги пришли вовремя. Как и ракеты.'}]},
+ {id:15,c:'almaty',t:'Пробки на Аль-Фараби',x:'Средняя скорость в час пик 9 км/ч. Велосипедисты обгоняют «Камри».',o:[
+  {t:'Выделенные полосы для автобусов',e:{rd:6,tr:-2,el:2},r:'Автобусы летят, водители машин пишут гневные сторис.'},
+  {t:'Ещё одна развязка',e:{b:-0.3,rd:3,el:-2,co:2},r:'Развязка красивая. Пробка переехала на 2 км дальше.'},
+  {t:'Перевести половину офисов в Астану',e:{rd:4,tr:-6},r:'Алматы свободнее. Астана в шоке.'}]},
+ {id:16,c:'turk',t:'Туристический бум в Туркестане',x:'Мавзолей Ходжи Ахмеда Ясави в трендах. Отели переполнены.',o:[
+  {t:'Безвиз и поддержка гостевых домов',e:{ec:5,tr:2},r:'Туристы едут из Турции, Индии и Узбекистана.'},
+  {t:'Построить ещё одну огромную площадь',e:{b:-0.4,co:4,ec:1},r:'Площадь огромная. Тени на ней нет.'}]},
+ {id:17,s:'au',c:'kost',t:'Рекордный урожай пшеницы',x:'Костанай собрал 6 млн тонн. Элеваторы забиты.',o:[
+  {t:'Субсидировать экспорт',e:{b:0.4,ec:4},r:'Казахстанская мука уходит в Китай и Афганистан.'},
+  {t:'Построить новые элеваторы',e:{b:-0.1,so:3,ec:2},r:'Зерно в сохранности, фермеры ждут цены получше.'},
+  {t:'Запретить вывоз, чтобы хлеб не дорожал',e:{tr:-4,ec:-4},r:'Хлеб дешёвый, фермеры в убытке.'}]},
+ {id:18,c:'ekib',t:'Чёрный снег Экибастуза',x:'Жители выкладывают фото снега цвета асфальта.',o:[
+  {t:'Обязать ГРЭС поставить фильтры',e:{b:-0.3,el:7},r:'Снег снова белый. Почти.'},
+  {t:'Высадить зелёный пояс',e:{b:-0.05,el:3,co:2},r:'По отчётам посажено 2 млн деревьев. Найдено 300 тысяч.'}]},
+ {id:19,c:'astana',t:'Блогер разоблачил акимат',x:'Видео о закупке унитазов по 2 млн ₸ набрало 5 млн просмотров.',o:[
+  {t:'Пригласить блогера в рабочую группу',e:{co:-2,tr:6},r:'Блогер теперь проверяет госзакупки. Чиновники нервничают.'},
+  {t:'Завести дело на блогера',e:{tr:-10,co:3},r:'Видео набрало ещё 10 млн просмотров.'},
+  {t:'Замедлить интернет',e:{tr:-12,ec:-3},r:'Видео все посмотрели через VPN.'}]},
+ {id:20,c:'pav',t:'Цены на бензин',x:'Регулируемые цены на АИ-92 больше не покрывают затраты НПЗ.',o:[
+  {t:'Отпустить цены',e:{ec:5,tr:-8,b:0.2},r:'Очереди на заправках исчезли. Вместе с хорошим настроением.'},
+  {t:'Заморозить ещё на полгода',e:{ec:-4,tr:4,b:-0.2},r:'Бензин дешёвый. Его иногда даже можно найти.'}]},
+ {id:21,c:'astana',t:'Льготная ипотека',x:'Молодые семьи 10 лет стоят в очереди на жильё.',o:[
+  {t:'Запустить ипотеку под 5%',e:{b:-0.4,so:7,tr:5,ec:2},r:'Стройки ожили, молодожёны тоже.'},
+  {t:'Пусть копят сами',e:{so:-3,tr:-3},r:'Копят. Цены на квартиры растут быстрее.'}]},
+ {id:22,c:'oskemen',t:'Выбросы металлургов',x:'В Өскемене снова превышение свинца и кадмия.',o:[
+  {t:'Крупный штраф заводу',e:{b:0.1,el:5,ec:-2},r:'Завод заплатил и объявил о фильтрах. Посмотрим.'},
+  {t:'Договориться по-хорошему',e:{co:5,el:-3},r:'Договорились. Дышать легче не стало.'}]},
+ {id:23,s:'sp',c:'kar',t:'Ямы после зимы',x:'Весна открыла ямы, в которые помещается «Нива». Коммунальщики кладут асфальт в лужи.',o:[
+  {t:'Ямочный ремонт везде',e:{b:-0.2,rd:4,co:2},r:'Заплатки на заплатках. До следующей весны.'},
+  {t:'Капремонт главных трасс',e:{b:-0.6,rd:10},r:'Ровный асфальт. Водители не верят глазам.'},
+  {t:'Отметить ямы на картах как озёра',e:{tr:-5,rd:-3},r:'2ГИС добавил 4000 новых водоёмов.'}]},
+ {id:24,c:'kyzyl',t:'Врачи уезжают из сёл',x:'В районных больницах один терапевт на три села.',o:[
+  {t:'Поднять зарплаты и дать жильё',e:{b:-0.4,so:8,tr:4},r:'Выпускники медвузов едут в аулы. Вот это поворот.'},
+  {t:'Телемедицина по видеосвязи',e:{b:-0.15,so:3},r:'Работает. Там, где есть интернет.'}]},
+ {id:25,c:'taraz',t:'Тендер выиграла фирма-однодневка',x:'Подрядчик на дорогу за 300 млрд ₸ зарегистрирован вчера по адресу гаража.',o:[
+  {t:'Отменить тендер',e:{co:-6,rd:-2},r:'Дорогу отложили, но деньги целы.'},
+  {t:'Пусть строят, сроки горят',e:{co:8,rd:3},r:'Дорогу построили. Ровно до первого дождя.'},
+  {t:'Передать материалы в антикор',e:{co:-4,tr:3,b:-0.02},r:'Директор гаража дал показания.'}]},
+ {id:26,c:'shym',t:'Инвестор хочет завод',x:'Иностранная компания готова построить автозавод под Шымкентом.',o:[
+  {t:'Дать налоговые льготы',e:{ec:8,b:-0.2},r:'Завод открыт, 3000 рабочих мест.'},
+  {t:'Потребовать локализацию 50%',e:{ec:4,so:3},r:'Инвестор думал месяц и согласился на 30%.'}]},
+ {id:27,s:'sp',c:'zhez',t:'Сайгаков стало больше',x:'Перепись в Бетпак-Дале: почти 3 миллиона сайгаков. Фермеры жалуются, что едят посевы.',o:[
+  {t:'Экокоридоры и компенсации фермерам',e:{b:-0.05,el:4,tr:2},r:'Сайгаки довольны, фермеры терпят.'},
+  {t:'Разрешить отстрел',e:{b:0.05,el:-6,tr:-4},r:'Экологи вышли с плакатами. Мир смотрит.'}]},
+ {id:28,c:'almaty',t:'Тенге по 600',x:'Курс доллара перевалил за 600. Соцсети считают зарплаты в долларах.',o:[
+  {t:'Поднять базовую ставку',e:{ec:-4,tr:2},r:'Тенге стабилизировался. Кредиты подорожали.'},
+  {t:'Напечатать денег',e:{b:0.5,ec:-6,tr:-6},r:'Денег стало больше. Купить на них можно меньше.'}]},
+ {id:29,s:'w',c:'astana',t:'Буран, трасса закрыта',x:'Трасса Астана–Караганда закрыта, на ней стоят 400 машин.',o:[
+  {t:'Техника, пункты обогрева, горячий чай',e:{b:-0.1,tr:4,rd:2},r:'Всех вывезли. Водители выкладывают фото с чаем и баурсаками.'},
+  {t:'Ждите весну',e:{tr:-7},r:'Народ дождался. Только не весны, а следующих выборов.'}]},
+ {id:30,s:'su',c:'alakol',t:'Цены на Алаколе как в Дубае',x:'Номер с видом на озеро стоит 80 000 ₸ за ночь, без кондиционера.',o:[
+  {t:'Дать землю под новые базы отдыха',e:{ec:3,tr:2},r:'Конкуренция снизила цены. Кондиционеры появились.'},
+  {t:'Рынок сам разберётся',e:{tr:-2},r:'Народ поехал в Турцию.'}]},
+ {id:31,c:'zhez',t:'Моногород и медь',x:'Медный рудник истощается, весь город работает на одном предприятии.',o:[
+  {t:'Программа диверсификации',e:{b:-0.2,ec:4,so:3},r:'Открылись мебельная фабрика и логистический центр.'},
+  {t:'Ничего, меди хватит',e:{so:-3},r:'Молодёжь уезжает в Астану.'}]},
+ {id:32,s:'au',c:'balkh',t:'Озеро Балхаш теряет воду',x:'Китай забирает всё больше воды из Или. Солёная часть растёт.',o:[
+  {t:'Переговоры о водном соглашении',e:{tr:2,el:4},r:'Подписали меморандум. Дальше дело за его исполнением.'},
+  {t:'Построить ещё один водозабор',e:{b:-0.2,ec:2,el:-5},r:'Полям вода, озеру нет.'}]},
+ {id:33,s:'au',c:'ural',t:'Газ дешевле за границей',x:'Жители приграничных сёл Уральска не газифицированы, хотя рядом месторождение Карачаганак.',o:[
+  {t:'Протянуть газ в сёла',e:{b:-0.3,so:6,tr:5},r:'Голубое топливо дошло до последнего аула.'},
+  {t:'Сначала экспорт, потом свои',e:{b:0.1,tr:-6},r:'Экспорт идёт. Сёла топят кизяком.'}]},
+ {id:34,c:'kokshe',t:'Боровое застраивают',x:'На берегу Бурабая растут коттеджи. Чьи, никто не знает.',o:[
+  {t:'Снести незаконные постройки',e:{el:6,co:-5,tr:6},r:'Бульдозеры работают. Владельцы оказались родственниками важных людей.'},
+  {t:'Узаконить за небольшой сбор',e:{b:0.05,el:-4,co:4},r:'Берег закрыт заборами. Зато законно.'}]}
+];
+
+const ENDINGS=[
+  {min:75,g:'Легенда Ақорды',t:'Народ называет ваш срок золотым. Портреты не вешают, вы запретили, но вас и так помнят.'},
+  {min:62,g:'Сильный премьер',t:'Страна стала заметно лучше. Ошибки были, но их простили за газ в аулах и ровные дороги.'},
+  {min:48,g:'Крепкий середняк',t:'Ничего не развалили, кое-что построили. Вас запомнят как «того, при котором было нормально».'},
+  {min:35,g:'Отставка «по состоянию здоровья»',t:'Срок дотянули, но второго не будет. На прощание вас наградили орденом.'},
+  {min:0,g:'Почётный посол в Монголии',t:'Страна устала. Вас отправили представлять Казахстан туда, где мало журналистов.'}
+];
+
+const $=s=>document.querySelector(s);
+const clamp=v=>Math.max(0,Math.min(100,v));
+const rnd=n=>Math.floor(Math.random()*n);
+const fmtB=v=>v.toFixed(2).replace('.',',')+' трлн ₸';
+const fmtSigned=v=>(v>0?'+':'−')+Math.abs(v).toFixed(2).replace('.',',');
+const season=m=>{const i=m%12;return i===11||i<=1?'w':i<=4?'sp':i<=7?'su':'au'};
+const dateOf=m=>MONTHS[m%12]+' '+(2027+Math.floor(m/12));
+const SAVE='kz-razruli-v1';
+
+let S, lastDelta={};
+
+function fresh(){
+  return {m:0,b:10,st:{tr:55,ec:50,el:40,rd:40,so:45,co:55},deck:[],cur:null,phase:'intro',res:null,proj:{},log:[],end:null,confirmNew:false};
+}
+function save(){try{localStorage.setItem(SAVE,JSON.stringify(S))}catch(e){}}
+function load(){try{const r=localStorage.getItem(SAVE);if(r)return JSON.parse(r)}catch(e){}return null}
+
+function addLog(text){S.log.unshift({d:dateOf(S.m),t:text});if(S.log.length>80)S.log.length=80}
+
+function apply(e,mult){
+  const d={};mult=mult||1;
+  for(const k in e){
+    const v=e[k]*mult;
+    if(k==='b'){S.b+=v;d.b=(d.b||0)+v}
+    else{const before=S.st[k];S.st[k]=clamp(Math.round(before+v));d[k]=S.st[k]-before}
+  }
+  return d;
+}
+function mergeDelta(a,b){for(const k in b)a[k]=(a[k]||0)+b[k];return a}
+
+function drawEvent(){
+  const s=season(S.m);
+  if(!S.deck.length){S.deck=EVENTS.map(e=>e.id).sort(()=>Math.random()-.5)}
+  let idx=S.deck.findIndex(id=>{const e=EVENTS.find(x=>x.id===id);return !e.s||e.s===s});
+  if(idx<0)idx=0;
+  S.cur=S.deck.splice(idx,1)[0];
+  S.phase='event';S.res=null;
+}
+
+function choose(i){
+  const ev=EVENTS.find(e=>e.id===S.cur),o=ev.o[i];
+  const d=apply(o.e);
+  lastDelta=mergeDelta({},d);
+  S.res={t:o.r||'Решение принято.',d,choice:o.t};
+  S.phase='result';
+  addLog(CITIES[ev.c].n+': «'+o.t+'». '+(o.r||''));
+  checkEnd();save();render();
+}
+
+function endMonth(){
+  const st=S.st,d={};
+  // economy & leakage
+  const income=0.05+(st.ec-50)*0.01-(st.co-50)*0.004;
+  S.b+=income;d.b=income;
+  // public mood drifts with daily life
+  const drift=Math.round((st.so-50)/25+(st.rd-50)/40+(st.el-50)/60-(st.co-50)/35);
+  if(drift){const b=st.tr;st.tr=clamp(st.tr+drift);d.tr=st.tr-b}
+  // corruption creeps up slowly unless fought
+  if(Math.random()<.35){st.co=clamp(st.co+1);d.co=1}
+  // projects
+  for(const p of PROJECTS){
+    const r=S.proj[p.id];
+    if(r&&!r.done){
+      r.left--;
+      if(r.left<=0){
+        r.done=true;
+        const weak=Math.random()<st.co/300;
+        r.weak=weak;
+        mergeDelta(d,apply(p.e,weak?0.5:1));
+        addLog(weak?'Сдан «'+p.n+'», но половина объекта существует только в отчётах.':'Сдан проект «'+p.n+'». Ленточку перерезали без лишнего пафоса.');
+      }
+    }
+  }
+  lastDelta=d;
+  S.m++;
+  checkEnd();
+  if(!S.end)drawEvent();
+  save();render();
+}
+
+function checkEnd(){
+  if(S.end)return;
+  if(S.st.tr<=0){S.end={type:'fail',g:'Отставка правительства',t:'Доверие упало до нуля. Указ об отставке подписан в пятницу вечером, чтобы никто не заметил.'}}
+  else if(S.b<-3){S.end={type:'fail',g:'Технический дефолт',t:'Казна пуста, долг растёт. МВФ прислал вежливое письмо, а вы прислали заявление.'}}
+  else if(S.m>=TERM){
+    const sc=score();const e=ENDINGS.find(x=>sc>=x.min);
+    S.end={type:'term',g:e.g,t:e.t};
+  }
+  if(S.end){S.phase='over';addLog('Итог срока: '+S.end.g+'.')}
+}
+function score(){const s=S.st;return Math.round((s.tr+s.ec+s.el+s.rd+s.so+(100-s.co))/6)}
+
+function launch(id){
+  const p=PROJECTS.find(x=>x.id===id);
+  if(S.proj[id]||S.phase==='over')return;
+  let cost=p.cost,note='';
+  if(Math.random()<S.st.co/200){cost=+(cost*1.3).toFixed(2);note=' Смету раздули на 30%.'}
+  S.b-=cost;
+  S.proj[id]={left:p.mo,done:false};
+  addLog('Запущен проект «'+p.n+'» за '+fmtB(cost)+'.'+note);
+  lastDelta={b:-cost};
+  checkEnd();save();render();
+}
+
+/* ---------- render ---------- */
+function renderStats(){
+  $('#stats').innerHTML=STATS.map(s=>{
+    const v=S.st[s.k],bad=s.inv?v:100-v;
+    const cls=bad>=75?'crit':bad>=55?'warn':'';
+    const dv=lastDelta[s.k];
+    const good=s.inv?dv<0:dv>0;
+    const dl=dv?`<span class="delta ${good?'up':'dn'}">${dv>0?'+':'−'}${Math.abs(dv)}</span>`:'';
+    return `<div class="stat ${cls}"><div class="row"><span title="${s.n}">${s.n}</span><b>${v}${dl}</b></div><div class="bar"><i style="width:${v}%"></i></div></div>`;
+  }).join('');
+  $('#date').textContent=dateOf(Math.min(S.m,TERM-1));
+  $('#term').textContent=Math.min(S.m+1,TERM)+' / '+TERM;
+  const bb=$('#budget');bb.textContent=fmtB(S.b);bb.classList.toggle('neg',S.b<0);
+}
+
+function chipsFor(d){
+  const names={tr:'Доверие',ec:'Экономика',el:'Экология',rd:'Дороги',so:'Соцсфера',co:'Коррупция',b:'Бюджет'};
+  return Object.keys(d).filter(k=>d[k]).map(k=>{
+    const v=d[k],good=k==='co'?v<0:v>0;
+    const val=k==='b'?fmtSigned(v)+' трлн':(v>0?'+':'−')+Math.abs(v);
+    return `<span class="chip ${good?'up':'dn'}">${names[k]} ${val}</span>`;
+  }).join('');
+}
+
+function renderCard(){
+  const c=$('#card');
+  if(S.phase==='intro'){
+    c.innerHTML=`<span class="where">Указ о назначении</span>
+      <h2>Вы глава правительства Республики Казахстан</h2>
+      <p>У вас 60 месяцев, 10 трлн ₸ в казне и 20 миллионов человек, которые читают телеграм-каналы. Каждый месяц на стол ложится новая проблема из какого-то региона. Решайте её, запускайте национальные проекты и следите за шестью показателями.</p>
+      <p>Если доверие народа упадёт до нуля, вас отправят в отставку. Если долг превысит 3 трлн ₸, будет дефолт. Коррупция тихо съедает бюджет каждый месяц и иногда раздувает сметы.</p>
+      <button class="primary" id="start">Принять присягу</button>`;
+    $('#start').onclick=()=>{addLog('Правительство приступило к работе. Пресс-служба уже готовит отчёт об успехах.');drawEvent();lastDelta={};save();render()};
+    return;
+  }
+  if(S.phase==='over'){
+    const sc=score();
+    c.innerHTML=`<span class="where">${S.end.type==='term'?'Срок завершён':'Досрочный финал'} · ${dateOf(Math.min(S.m,TERM-1))}</span>
+      <div class="grade">${S.end.g}</div>
+      <p>${S.end.t}</p>
+      <div class="chips"><span class="chip">Итоговый балл ${sc} / 100</span><span class="chip">Месяцев у власти ${Math.min(S.m+ (S.end.type==='term'?0:1),TERM)}</span><span class="chip">Проектов сдано ${Object.values(S.proj).filter(p=>p.done).length}</span><span class="chip">Казна ${fmtB(S.b)}</span></div>
+      <button class="primary" id="again">Начать новый срок</button>`;
+    $('#again').onclick=()=>{S=fresh();lastDelta={};save();render()};
+    return;
+  }
+  const ev=EVENTS.find(e=>e.id===S.cur);
+  const city=CITIES[ev.c].n;
+  let html=`<span class="where">${city} · ${dateOf(S.m)}</span><h2>${ev.t}</h2><p>${ev.x}</p>`;
+  if(S.phase==='event'){
+    html+='<div class="opts">'+ev.o.map((o,i)=>{
+      const b=o.e.b;const cost=b?`<span class="cost ${b>0?'plus':''}">${fmtSigned(b)} трлн</span>`:'<span class="cost" style="color:var(--muted)">бесплатно</span>';
+      return `<button class="opt" data-i="${i}"><span>${o.t}</span>${cost}</button>`;
+    }).join('')+'</div>';
+  }else{
+    html+=`<div class="result"><b>Решение: ${S.res.choice}.</b><br>${S.res.t}</div><div class="chips">${chipsFor(S.res.d)}</div>
+      <button class="primary" id="next">${S.m+1>=TERM?'Подвести итоги срока':'Следующий месяц →'}</button>`;
+  }
+  c.innerHTML=html;
+  c.querySelectorAll('.opt').forEach(b=>b.onclick=()=>choose(+b.dataset.i));
+  const n=$('#next');if(n)n.onclick=endMonth;
+}
+
+function renderProjects(){
+  const over=S.phase==='over'||S.phase==='intro';
+  $('#projects').innerHTML=PROJECTS.map(p=>{
+    const r=S.proj[p.id];
+    let foot,cls='';
+    if(r&&r.done){cls='done';foot=`<span class="status up">${r.weak?'Сдан наполовину':'Сдан'} ✓</span>`}
+    else if(r){cls='run';const pct=Math.round((p.mo-r.left)/p.mo*100);foot=`<div class="prog"><i style="width:${pct}%"></i></div><span class="status" style="color:var(--sky)">Стройка: осталось ${r.left} мес.</span>`}
+    else{foot=`<button data-p="${p.id}" ${over?'disabled':''}>Запустить за ${p.cost.toFixed(1).replace('.',',')} трлн</button>`}
+    return `<div class="proj ${cls}"><h4>${p.n}</h4><div class="meta"><span>${CITIES[p.c].n}</span><span>${p.mo} мес.</span></div><p>${p.d}</p>${foot}</div>`;
+  }).join('');
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>launch(b.dataset.p));
+}
+
+function renderLog(){
+  $('#log').innerHTML=S.log.length?S.log.map(l=>`<div><time>${l.d}</time><span>${l.t}</span></div>`).join(''):'<div class="empty">Здесь появятся решения правительства.</div>';
+  const slot=$('#newgame-slot');
+  if(S.phase==='intro'){slot.innerHTML='';return}
+  if(S.confirmNew){
+    slot.innerHTML='<span class="confirm">Сбросить прогресс? <button class="ghost" id="yes">Да, заново</button><button class="ghost" id="no">Отмена</button></span>';
+    $('#yes').onclick=()=>{S=fresh();lastDelta={};save();render()};
+    $('#no').onclick=()=>{S.confirmNew=false;render()};
+  }else{
+    slot.innerHTML='<button class="ghost" id="reset">Новая игра</button>';
+    $('#reset').onclick=()=>{S.confirmNew=true;render()};
+  }
+}
+
+/* ---------- map ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+let mapLayer;
+function buildMap(){
+  const svg=$('#map');svg.innerHTML='';
+  const defs=el('defs',{},svg);
+  const g=el('linearGradient',{id:'land',x1:0,y1:0,x2:0,y2:1},defs);
+  el('stop',{offset:'0','stop-color':'#2f6476'},g);el('stop',{offset:'1','stop-color':'#22495a'},g);
+  const pat=el('pattern',{id:'steppe',width:14,height:14,patternUnits:'userSpaceOnUse'},defs);
+  el('path',{d:'M0 14 L14 0',stroke:'#3a7486','stroke-width':.6,opacity:.35},pat);
+  // Caspian
+  const casp=[[46.5,47.0],[47.5,46.0],[49.0,46.0],[49.2,46.4],[50.0,46.7],[51.5,46.8],[53.2,46.3],[53.1,45.4],[51.5,45.4],[50.9,44.9],[50.3,44.4],[51.0,43.9],[51.3,43.2],[52.5,42.8],[53.0,42.1],[52.9,41.0],[52.0,40.0],[49.0,40.0],[48.5,41.8],[47.5,43.0],[47.0,44.5],[46.5,45.5]].map(P);
+  el('path',{d:'M'+casp.map(p=>p.join(',')).join('L')+'Z',fill:'var(--water)',opacity:.85},svg);
+  const pts=BORDER.map(P).map(p=>p.map(n=>n.toFixed(1)).join(',')).join(' ');
+  // extrusion
+  for(let i=16;i>0;i-=2)el('polygon',{points:pts,fill:i>8?'#0a1d26':'var(--land-edge)',transform:`translate(0 ${i})`},svg);
+  el('polygon',{points:pts,fill:'url(#land)',stroke:'#5ea7b8','stroke-width':1.5,'stroke-linejoin':'round'},svg);
+  el('polygon',{points:pts,fill:'url(#steppe)'},svg);
+  // lakes
+  const [bx,by]=P([75.3,46.4]);
+  el('ellipse',{cx:bx,cy:by,rx:92,ry:9,fill:'var(--water)',transform:`rotate(-14 ${bx} ${by})`},svg);
+  const [ax,ay]=P([60.5,45.6]);
+  const aralDone=S.proj.aralp&&S.proj.aralp.done;
+  el('ellipse',{cx:ax,cy:ay,rx:aralDone?34:22,ry:aralDone?26:16,fill:'var(--water)'},svg);
+  const [lx,ly]=P([81.6,46.15]);el('ellipse',{cx:lx-8,cy:ly+4,rx:12,ry:9,fill:'var(--water)'},svg);
+  mapLayer=el('g',{},svg);
+}
+function renderMap(){
+  buildMap();
+  const hot=(S.phase==='event'||S.phase==='result')?EVENTS.find(e=>e.id===S.cur).c:null;
+  const byCity={};for(const p of PROJECTS){const r=S.proj[p.id];if(r)(byCity[p.c]=byCity[p.c]||[]).push(r.done?'done':'run')}
+  for(const k in CITIES){
+    const c=CITIES[k],[x,y]=P(c.ll);
+    const cls='city'+(c.cap?' cap':'')+(k===hot?' hot':'');
+    const g=el('g',{class:cls},mapLayer);
+    el('title',{},g).textContent=c.n;
+    if(k===hot){el('circle',{cx:x,cy:y,r:16,fill:'var(--sun)',class:'pulse'},g)}
+    const marks=byCity[k]||[];
+    marks.forEach((m,i)=>{el('rect',{x:x+8+i*11,y:y-22,width:8,height:8+ (m==='done'?10:4),fill:m==='done'?'var(--good)':'var(--sky)',rx:1},g)});
+    el('circle',{cx:x,cy:y,r:c.cap?6.5:c.small?3.5:5,fill:k===hot?'var(--sun)':c.cap?'var(--fg)':'#b7c8d3',stroke:'var(--bg)','stroke-width':2},g);
+    if(!c.small||k===hot||marks.length){
+      const t=el('text',{x:x,y:y+22,'text-anchor':'middle'},g);t.textContent=c.n;
+    }
+  }
+}
+
+function render(){renderStats();renderCard();renderProjects();renderLog();renderMap()}
+
+function start(data){
+  S=(data&&data.S)||load()||fresh();
+  S.confirmNew=false;
+  render();
+}
+window.claude?.hot?.snapshot?.(()=>({S}));
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+})();
+</script>
